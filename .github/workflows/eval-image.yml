@@ -1,0 +1,102 @@
+name: eval image
+
+# Builds the container image the beat-the-hotspot hill's evaluator runs inside,
+# publishes it to ghcr.io, and then proves it can actually run the pinned HotSpot
+# build. The hill ships a Linux x86-64 binary that imports GLIBC_2.34 symbols,
+# and AutoLab's rented nodes turned out to have an older glibc, which is why the
+# image exists at all. The digest this workflow prints is what gets pinned into
+# hill.yaml.
+
+on:
+  push:
+    branches: [add-eval-image-workflow]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/czaja107/beat-the-hotspot-eval
+
+jobs:
+  build-and-verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push the evaluator image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: .autolab/hills/beat-the-hotspot/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:v1
+            ${{ env.IMAGE }}:latest
+
+      - name: Report the digest to pin in hill.yaml
+        run: |
+          echo "PIN THIS IN hill.yaml:"
+          echo "  ${IMAGE}@${{ steps.build.outputs.digest }}"
+
+      - name: Image sanity, glibc and numpy
+        run: |
+          set -eux
+          docker run --rm "${IMAGE}@${{ steps.build.outputs.digest }}" \
+            bash -lc 'ldd --version | head -1; python -c "import numpy, sys; print(\"numpy\", numpy.__version__); print(sys.version)"'
+
+      # git cannot record an execute bit from a Windows checkout, so the binary
+      # arrives as mode 644 here exactly as it did on the AutoLab node.
+      - name: Restore the simulator's execute bit
+        run: chmod +x vendor/HotSpot/hotspot
+
+      - name: Prove HotSpot loads inside the image
+        run: |
+          set -eux
+          docker run --rm -v "$PWD":/hill -w /hill \
+            "${IMAGE}@${{ steps.build.outputs.digest }}" \
+            bash -lc './vendor/HotSpot/hotspot 2>&1 | head -5 || true'
+
+      - name: Geometry and contract tests inside the image
+        run: |
+          set -eux
+          docker run --rm -v "$PWD":/hill -w /hill \
+            "${IMAGE}@${{ steps.build.outputs.digest }}" \
+            python -m unittest discover -s tests -v
+
+      - name: Score the baseline layout with real HotSpot, 64 by 64
+        run: |
+          set -eux
+          docker run --rm -v "$PWD":/hill -w /hill \
+            "${IMAGE}@${{ steps.build.outputs.digest }}" \
+            python verify_high_accuracy.py examples/baseline/submission.json \
+              --hotspot vendor/HotSpot/hotspot --grid 64 --output verifier_64.json
+
+      - name: Compare against the published reference values
+        run: |
+          python - <<'PY'
+          import json
+          run = json.load(open("verifier_64.json"))
+          ref = json.load(open("reference_64.json"))
+          print("passed     :", run.get("passed"))
+          print("score      :", run.get("score"), "(1.0 expected: the baseline IS the reference layout)")
+          print("worst gpu  :", run["worst_gpu_c"], "| published reference", ref["worst_gpu_c"])
+          print("worst hbm  :", run["worst_hbm_c"], "| published reference", ref["worst_hbm_c"])
+          for name, case in run["workloads"].items():
+              print(f"  {name:18} gpu {case['gpu_peak_c']:7.2f}  hbm {case['hbm_peak_c']:7.2f}  {case['total_w']:7.2f} W")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: verifier-64
+          path: verifier_64.json

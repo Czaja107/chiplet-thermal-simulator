@@ -12,3 +12,7 @@ results.json
 power_budget.json
 /out/
 /runs/
+
+# AutoLab hill working directory (the hill is versioned by autolab itself).
+# The evaluator Dockerfile is force-added so CI can build it.
+.autolab/
