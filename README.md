@@ -1,6 +1,6 @@
 Optimize a legal eight-chiplet layout to minimize worst-case GPU and HBM temperatures across five fixed workloads. Submit coordinates and optional wire paths.
 
-# Beat the Hotspot — Autolab Hill
+# Design the coolest chip challenge
 
 The submission directory must contain a `submission.json` file. Other files are ignored by scoring. The evaluator reads only that file from the submission, performs all geometry checks, and runs its own pinned HotSpot build and fixed workloads. A local baseline is `examples/baseline/submission.json`.
 
