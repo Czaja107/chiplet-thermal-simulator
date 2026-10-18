@@ -1,0 +1,7 @@
+{
+  "grid": 64,
+  "worst_gpu_c": 104.59,
+  "worst_hbm_c": 97.68,
+  "layout": "random_layout",
+  "note": "Public seeded random baseline; full precision rounded to 0.01 Celsius by the judge."
+}

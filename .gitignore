@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.DS_Store
+
+# Simulation outputs
+*_eval.json
+results.json
+power_budget.json
+/out/
+/runs/

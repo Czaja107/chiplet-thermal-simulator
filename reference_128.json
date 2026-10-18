@@ -1,0 +1,7 @@
+{
+  "grid": 128,
+  "worst_gpu_c": 104.74,
+  "worst_hbm_c": 97.7,
+  "layout": "random_layout",
+  "note": "High-resolution finalist baseline using the identical five workload sources and pinned HotSpot executable."
+}

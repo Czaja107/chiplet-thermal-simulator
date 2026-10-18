@@ -1,0 +1,8 @@
+spec_version: 2
+name: beat-the-hotspot
+version: 0.1.0
+metrics:
+  - {name: score, direction: min}
+  - {name: worst_gpu_c, direction: min}
+  - {name: worst_hbm_c, direction: min}
+watchdog_timeout_s: 6000
